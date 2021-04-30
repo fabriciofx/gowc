@@ -1,12 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
-	"sync"
 )
 
 func visit(files *[]string) filepath.WalkFunc {
@@ -21,46 +20,42 @@ func visit(files *[]string) filepath.WalkFunc {
 	}
 }
 
-func countLines(wg *sync.WaitGroup, pipe chan int, file string) {
-	defer wg.Done()
-	bytes, err := os.ReadFile(file)
-	if err != nil {
-		panic(err)
-	}
-	content := string(bytes)
-	count := strings.Count(content, "\n")
-	fmt.Printf("Lines in '%s': %d\n", file, count)
-	pipe <- count
+type linesum struct {
+	file  string
+	count int
 }
 
-func sumLines(pipe chan int) int {
-	sum := 0
-	for {
-		if count, ok := <-pipe; ok {
-			sum = sum + count
-		} else {
-			fmt.Println("saindo!")
-			break
+func countLines(files []string) chan linesum {
+	ch := make(chan linesum, 200)
+
+	go func() {
+		for _, f := range files {
+			b, err := os.ReadFile(f)
+			if err != nil {
+				panic(err)
+			}
+			count := bytes.Count(b, []byte{'\n'})
+			ch <- linesum{f, count}
 		}
-	}
-	return sum
+		close(ch)
+	}()
+	return ch
 }
 
 func main() {
-	wg := new(sync.WaitGroup)
-	pipe := make(chan int, 200)
 	var files []string
 	root := "dataset"
 	err := filepath.Walk(root, visit(&files))
 	if err != nil {
 		panic(err)
 	}
-	for _, file := range files {
-		wg.Add(1)
-		go countLines(wg, pipe, file)
+
+	linech := countLines(files)
+	sum := 0
+	for l := range linech {
+		sum += l.count
+		fmt.Printf("Lines in '%s': %d\n", l.file, l.count)
 	}
-	sum := sumLines(pipe)
-	wg.Wait()
-	close(pipe)
+
 	fmt.Printf("Total: %d\n,", sum)
 }
