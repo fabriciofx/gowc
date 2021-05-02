@@ -39,16 +39,10 @@ func countLines(pipe chan int, filename string) {
 	pipe <- count
 }
 
-func sumLines(pipe chan int, filenames []string) int {
-	for _, filename := range filenames {
-		go countLines(pipe, filename)
-	}
+func sumLines(pipe chan int, numFiles int) int {
 	sum := 0
-	for range filenames {
-		count, ok := <-pipe
-		if ok {
-			sum = sum + count
-		}
+	for cnt := 0; cnt < numFiles; cnt++ {
+		sum = sum + <-pipe
 	}
 	return sum
 }
@@ -56,5 +50,9 @@ func sumLines(pipe chan int, filenames []string) int {
 func main() {
 	pipe := make(chan int, 200)
 	filenames := filenames("dataset")
-	fmt.Printf("Total: %d\n", sumLines(pipe, filenames))
+	for _, filename := range filenames {
+		go countLines(pipe, filename)
+	}
+	total := sumLines(pipe, len(filenames))
+	fmt.Printf("Total: %d\n", total)
 }
