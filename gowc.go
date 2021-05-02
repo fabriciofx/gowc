@@ -29,18 +29,19 @@ func filenames(path string) []string {
 	return filenames
 }
 
-func countLines(filenames []string) int {
-	pipe := make(chan int)
+func countLines(pipe chan int, filename string) {
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		panic(err)
+	}
+	count := bytes.Count(content, []byte{'\n'})
+	fmt.Printf("Lines in '%s': %d\n", filename, count)
+	pipe <- count
+}
+
+func sumLines(pipe chan int, filenames []string) int {
 	for _, filename := range filenames {
-		go func(f string) {
-			content, err := os.ReadFile(f)
-			if err != nil {
-				panic(err)
-			}
-			count := bytes.Count(content, []byte{'\n'})
-			fmt.Printf("Lines in '%s': %d\n", f, count)
-			pipe <- count
-		}(filename)
+		go countLines(pipe, filename)
 	}
 	sum := 0
 	for range filenames {
@@ -53,6 +54,7 @@ func countLines(filenames []string) int {
 }
 
 func main() {
+	pipe := make(chan int, 200)
 	filenames := filenames("dataset")
-	fmt.Printf("Total: %d\n", countLines(filenames))
+	fmt.Printf("Total: %d\n", sumLines(pipe, filenames))
 }
