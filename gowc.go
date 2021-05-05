@@ -8,21 +8,26 @@ import (
 	"path/filepath"
 )
 
-func fromDir(files *[]string) filepath.WalkFunc {
-	return func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			log.Fatal(err)
-		}
-		if !info.IsDir() {
-			*files = append(*files, path)
-		}
-		return nil
-	}
+type Files struct {
+	path  string
+	names []string
+	pipe  chan int
 }
 
-func filenames(path string) []string {
+func filenamesFromPath(path string) []string {
 	var filenames []string
-	err := filepath.Walk(path, fromDir(&filenames))
+	err := filepath.Walk(
+		path,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				log.Fatal(err)
+			}
+			if !info.IsDir() {
+				filenames = append(filenames, path)
+			}
+			return nil
+		},
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -39,26 +44,30 @@ func countLines(filename string) int {
 	return count
 }
 
-func sumLines(pipe chan int) int {
+func NewFiles(path string) Files {
+	names := filenamesFromPath(path)
+	return Files{
+		path:  path,
+		names: names,
+		pipe:  make(chan int, len(names)),
+	}
+}
+
+func (files Files) FilesLinesSum() int {
 	sum := 0
-	nfiles := <-pipe
-	for cnt := 0; cnt < nfiles; cnt++ {
-		sum = sum + <-pipe
+	for _, filename := range files.names {
+		go func(fname string) {
+			count := countLines(fname)
+			files.pipe <- count
+		}(filename)
+	}
+	for range files.names {
+		sum = sum + <-files.pipe
 	}
 	return sum
 }
 
 func main() {
-	filenames := filenames("dataset")
-	length := len(filenames)
-	pipe := make(chan int, length+1)
-	pipe <- length
-	for _, filename := range filenames {
-		go func(fname string) {
-			count := countLines(fname)
-			pipe <- count
-		}(filename)
-	}
-	total := sumLines(pipe)
-	fmt.Printf("Total of lines: %d\n", total)
+	files := NewFiles("dataset")
+	fmt.Printf("Total of lines: %d\n", files.FilesLinesSum())
 }
