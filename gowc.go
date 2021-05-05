@@ -60,5 +60,5 @@ func main() {
 		}(filename)
 	}
 	total := sumLines(pipe)
-	fmt.Printf("Total: %d\n", total)
+	fmt.Printf("Total of lines: %d\n", total)
 }
