@@ -41,8 +41,8 @@ func countLines(filename string) int {
 
 func sumLines(pipe chan int) int {
 	sum := 0
-	numFiles := <-pipe
-	for cnt := 0; cnt < numFiles; cnt++ {
+	nfiles := <-pipe
+	for cnt := 0; cnt < nfiles; cnt++ {
 		sum = sum + <-pipe
 	}
 	return sum
