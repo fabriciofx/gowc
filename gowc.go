@@ -49,9 +49,10 @@ func sumLines(pipe chan int) int {
 }
 
 func main() {
-	pipe := make(chan int, 200)
 	filenames := filenames("dataset")
-	pipe <- len(filenames)
+	length := len(filenames)
+	pipe := make(chan int, length+1)
+	pipe <- length
 	for _, filename := range filenames {
 		go func(fname string) {
 			count := countLines(fname)
