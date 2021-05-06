@@ -8,10 +8,14 @@ import (
 	"path/filepath"
 )
 
-type Files struct {
-	path  string
-	names []string
-	pipe  chan int
+type Lines interface {
+	Sum() int
+}
+
+type FileLines struct {
+	path      string
+	filenames []string
+	pipe      chan int
 }
 
 func filenamesFromPath(path string) []string {
@@ -44,30 +48,30 @@ func countLines(filename string) int {
 	return count
 }
 
-func NewFiles(path string) Files {
-	names := filenamesFromPath(path)
-	return Files{
-		path:  path,
-		names: names,
-		pipe:  make(chan int, len(names)),
+func NewFileLines(path string) FileLines {
+	filenames := filenamesFromPath(path)
+	return FileLines{
+		path:      path,
+		filenames: filenames,
+		pipe:      make(chan int, len(filenames)),
 	}
 }
 
-func (files Files) FilesLinesSum() int {
+func (lines FileLines) Sum() int {
 	sum := 0
-	for _, filename := range files.names {
+	for _, filename := range lines.filenames {
 		go func(fname string) {
 			count := countLines(fname)
-			files.pipe <- count
+			lines.pipe <- count
 		}(filename)
 	}
-	for range files.names {
-		sum = sum + <-files.pipe
+	for range lines.filenames {
+		sum = sum + <-lines.pipe
 	}
 	return sum
 }
 
 func main() {
-	files := NewFiles("dataset")
-	fmt.Printf("Total of lines: %d\n", files.FilesLinesSum())
+	lines := NewFileLines("dataset")
+	fmt.Printf("Total of lines: %d\n", lines.Sum())
 }
